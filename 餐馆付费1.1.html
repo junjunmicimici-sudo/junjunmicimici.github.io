@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>餐厅桌位布局系统</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --table-color: #ffffff;
+            --paid-color: #2ecc71;
+            --delete-color: #ff4757;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 顶部控制栏 */
+        .admin-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: white;
+            padding: 10px;
+            display: flex;
+            gap: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            align-items: center;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px; /* 防止 iOS 自动放大 */
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007aff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        #floor-plan {
+            width: 100vw;
+            height: 100vh;
+            background-image: radial-gradient(#d1d1d1 1.5px, transparent 1.5px);
+            background-size: 30px 30px;
+            position: relative;
+            padding-top: 60px; /* 留出控制栏空间 */
+        }
+
+        /* 桌子样式 */
+        .table {
+            width: 85px;
+            height: 85px;
+            background-color: var(--table-color);
+            border: 2px solid #333;
+            border-radius: 15px;
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            touch-action: none; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .table-id { font-size: 1.2rem; font-weight: bold; }
+        .status { font-size: 0.7rem; color: #777; }
+
+        .table.paid {
+            background-color: var(--paid-color);
+            color: white;
+            border-color: #27ae60;
+        }
+        .table.paid .status { color: #fff; }
+
+        /* 删除按钮 */
+        .del-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 24px;
+            height: 24px;
+            background: var(--delete-color);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 22px;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="admin-bar">
+        <input type="text" id="tableName" placeholder="输入桌号 (如 B1)">
+        <button onclick="addNewTable()">添加桌子</button>
+    </div>
+
+    <div id="floor-plan"></div>
+
+    <script>
+        const floorPlan = document.getElementById('floor-plan');
+        const tableNameInput = document.getElementById('tableName');
+
+        // 初始生成 A1-A10
+        for (let i = 1; i <= 10; i++) {
+            createTable(`A${i}`, 40 + ((i-1)%3)*100, 100 + Math.floor((i-1)/3)*100);
+        }
+
+        function addNewTable() {
+            const name = tableNameInput.value.trim();
+            if (!name) {
+                alert("请输入桌号！");
+                return;
+            }
+            // 默认放在屏幕中央附近
+            createTable(name, 100, 200);
+            tableNameInput.value = ""; // 清空输入框
+        }
+
+        function createTable(id, left, top) {
+            const table = document.createElement('div');
+            table.className = 'table';
+            table.style.left = left + 'px';
+            table.style.top = top + 'px';
+
+            table.innerHTML = `
+                <div class="del-btn">×</div>
+                <div class="table-id">${id}</div>
+                <div class="status">待结账</div>
+            `;
+
+            // --- 删除功能 ---
+            table.querySelector('.del-btn').addEventListener('touchstart', (e) => {
+                e.stopPropagation(); // 防止触发拖拽
+                if(confirm(`确定要删除桌子 ${id} 吗？`)) {
+                    table.remove();
+                }
+            });
+
+            // --- 拖拽与点击逻辑 ---
+            let isMoving = false;
+            let startX, startY, initialLeft, initialTop;
+
+            table.addEventListener('touchstart', (e) => {
+                isMoving = false;
+                const touch = e.touches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
+                initialLeft = table.offsetLeft;
+                initialTop = table.offsetTop;
+                table.style.zIndex = 1000;
+            });
+
+            table.addEventListener('touchmove', (e) => {
+                isMoving = true;
+                const touch = e.touches[0];
+                table.style.left = (initialLeft + (touch.clientX - startX)) + 'px';
+                table.style.top = (initialTop + (touch.clientY - startY)) + 'px';
+                e.preventDefault(); // 阻止滚动
+            }, {passive: false});
+
+            table.addEventListener('touchend', () => {
+                table.style.zIndex = 1;
+                if (!isMoving) {
+                    table.classList.toggle('paid');
+                    table.querySelector('.status').innerText = 
+                        table.classList.contains('paid') ? 'PAID' : '待结账';
+                }
+            });
+
+            floorPlan.appendChild(table);
+        }
+    </script>
+</body>
+</html>
