@@ -1,2 +1,1 @@
 # junjunmicimici.github.io
-Good
